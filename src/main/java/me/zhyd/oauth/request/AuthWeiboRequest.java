@@ -5,10 +5,12 @@ import cn.hutool.http.HttpResponse;
 import com.alibaba.fastjson.JSONObject;
 import me.zhyd.oauth.cache.AuthStateCache;
 import me.zhyd.oauth.config.AuthConfig;
-import me.zhyd.oauth.config.AuthSource;
+import me.zhyd.oauth.config.AuthDefaultSource;
+import me.zhyd.oauth.enums.AuthResponseStatus;
 import me.zhyd.oauth.enums.AuthUserGender;
 import me.zhyd.oauth.exception.AuthException;
 import me.zhyd.oauth.model.AuthCallback;
+import me.zhyd.oauth.model.AuthResponse;
 import me.zhyd.oauth.model.AuthToken;
 import me.zhyd.oauth.model.AuthUser;
 import me.zhyd.oauth.utils.IpUtils;
@@ -25,11 +27,11 @@ import me.zhyd.oauth.utils.UrlBuilder;
 public class AuthWeiboRequest extends AuthDefaultRequest {
 
     public AuthWeiboRequest(AuthConfig config) {
-        super(config, AuthSource.WEIBO);
+        super(config, AuthDefaultSource.WEIBO);
     }
 
     public AuthWeiboRequest(AuthConfig config, AuthStateCache authStateCache) {
-        super(config, AuthSource.WEIBO, authStateCache);
+        super(config, AuthDefaultSource.WEIBO, authStateCache);
     }
 
     @Override
@@ -73,7 +75,7 @@ public class AuthWeiboRequest extends AuthDefaultRequest {
             .remark(object.getString("description"))
             .gender(AuthUserGender.getRealGender(object.getString("gender")))
             .token(authToken)
-            .source(source)
+            .source(source.toString())
             .build();
     }
 
@@ -89,5 +91,17 @@ public class AuthWeiboRequest extends AuthDefaultRequest {
             .queryParam("access_token", authToken.getAccessToken())
             .queryParam("uid", authToken.getUid())
             .build();
+    }
+
+    @Override
+    public AuthResponse revoke(AuthToken authToken) {
+        HttpResponse response = doGetRevoke(authToken);
+        JSONObject object = JSONObject.parseObject(response.body());
+        if (object.containsKey("error")) {
+            return AuthResponse.builder().code(AuthResponseStatus.FAILURE.getCode()).msg(object.getString("error")).build();
+        }
+        // 返回 result = true 表示取消授权成功，否则失败
+        AuthResponseStatus status = object.getBooleanValue("result") ? AuthResponseStatus.SUCCESS : AuthResponseStatus.FAILURE;
+        return AuthResponse.builder().code(status.getCode()).msg(status.getMsg()).build();
     }
 }

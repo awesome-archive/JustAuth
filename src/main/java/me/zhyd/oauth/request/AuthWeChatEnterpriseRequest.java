@@ -5,13 +5,14 @@ import cn.hutool.http.HttpResponse;
 import com.alibaba.fastjson.JSONObject;
 import me.zhyd.oauth.cache.AuthStateCache;
 import me.zhyd.oauth.config.AuthConfig;
-import me.zhyd.oauth.config.AuthSource;
+import me.zhyd.oauth.config.AuthDefaultSource;
 import me.zhyd.oauth.enums.AuthResponseStatus;
 import me.zhyd.oauth.enums.AuthUserGender;
 import me.zhyd.oauth.exception.AuthException;
 import me.zhyd.oauth.model.AuthCallback;
 import me.zhyd.oauth.model.AuthToken;
 import me.zhyd.oauth.model.AuthUser;
+import me.zhyd.oauth.utils.StringUtils;
 import me.zhyd.oauth.utils.UrlBuilder;
 
 /**
@@ -24,11 +25,11 @@ import me.zhyd.oauth.utils.UrlBuilder;
  */
 public class AuthWeChatEnterpriseRequest extends AuthDefaultRequest {
     public AuthWeChatEnterpriseRequest(AuthConfig config) {
-        super(config, AuthSource.WECHAT_ENTERPRISE);
+        super(config, AuthDefaultSource.WECHAT_ENTERPRISE);
     }
 
     public AuthWeChatEnterpriseRequest(AuthConfig config, AuthStateCache authStateCache) {
-        super(config, AuthSource.WECHAT_ENTERPRISE, authStateCache);
+        super(config, AuthDefaultSource.WECHAT_ENTERPRISE, authStateCache);
     }
 
     /**
@@ -57,13 +58,11 @@ public class AuthWeChatEnterpriseRequest extends AuthDefaultRequest {
 
         // 返回 OpenId 或其他，均代表非当前企业用户，不支持
         if (!object.containsKey("UserId")) {
-            throw new AuthException(AuthResponseStatus.UNIDENTIFIED_PLATFORM);
+            throw new AuthException(AuthResponseStatus.UNIDENTIFIED_PLATFORM, source);
         }
         String userId = object.getString("UserId");
         HttpResponse userDetailResponse = getUserDetail(authToken.getAccessToken(), userId);
         JSONObject userDetail = this.checkResponse(userDetailResponse);
-
-        String gender = getRealGender(userDetail);
 
         return AuthUser.builder()
             .username(userDetail.getString("name"))
@@ -72,9 +71,9 @@ public class AuthWeChatEnterpriseRequest extends AuthDefaultRequest {
             .location(userDetail.getString("address"))
             .email(userDetail.getString("email"))
             .uuid(userId)
-            .gender(AuthUserGender.getRealGender(gender))
+            .gender(AuthUserGender.getWechatRealGender(userDetail.getString("gender")))
             .token(authToken)
-            .source(source)
+            .source(source.toString())
             .build();
     }
 
@@ -88,24 +87,10 @@ public class AuthWeChatEnterpriseRequest extends AuthDefaultRequest {
         JSONObject object = JSONObject.parseObject(response.body());
 
         if (object.containsKey("errcode") && object.getIntValue("errcode") != 0) {
-            throw new AuthException(object.getIntValue("errcode"), object.getString("errmsg"));
+            throw new AuthException(object.getString("errmsg"), source);
         }
 
         return object;
-    }
-
-    /**
-     * 获取用户的实际性别，0表示未定义，1表示男性，2表示女性
-     *
-     * @param userDetail 用户详情
-     * @return 用户性别
-     */
-    private String getRealGender(JSONObject userDetail) {
-        int gender = userDetail.getIntValue("gender");
-        if (AuthUserGender.MALE.getCode() == gender) {
-            return "1";
-        }
-        return 2 == gender ? "0" : null;
     }
 
     /**

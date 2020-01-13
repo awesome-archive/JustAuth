@@ -6,7 +6,7 @@ import cn.hutool.http.HttpResponse;
 import com.alibaba.fastjson.JSONObject;
 import me.zhyd.oauth.cache.AuthStateCache;
 import me.zhyd.oauth.config.AuthConfig;
-import me.zhyd.oauth.config.AuthSource;
+import me.zhyd.oauth.config.AuthDefaultSource;
 import me.zhyd.oauth.enums.AuthResponseStatus;
 import me.zhyd.oauth.enums.AuthUserGender;
 import me.zhyd.oauth.exception.AuthException;
@@ -29,11 +29,11 @@ import java.util.Map;
  */
 public class AuthQqRequest extends AuthDefaultRequest {
     public AuthQqRequest(AuthConfig config) {
-        super(config, AuthSource.QQ);
+        super(config, AuthDefaultSource.QQ);
     }
 
     public AuthQqRequest(AuthConfig config, AuthStateCache authStateCache) {
-        super(config, AuthSource.QQ, authStateCache);
+        super(config, AuthDefaultSource.QQ, authStateCache);
     }
 
     @Override
@@ -70,13 +70,13 @@ public class AuthQqRequest extends AuthDefaultRequest {
             .uuid(openId)
             .gender(AuthUserGender.getRealGender(object.getString("gender")))
             .token(authToken)
-            .source(source)
+            .source(source.toString())
             .build();
     }
 
     /**
      * 获取QQ用户的OpenId，支持自定义是否启用查询unionid的功能，如果启用查询unionid的功能，
-     * 那就需要调用者先通过邮件申请unionid功能，参考链接 {@see http://wiki.connect.qq.com/unionid%E4%BB%8B%E7%BB%8D}
+     * 那就需要开发者先通过邮件申请unionid功能，参考链接 {@see http://wiki.connect.qq.com/unionid%E4%BB%8B%E7%BB%8D}
      *
      * @param authToken 通过{@link AuthQqRequest#getAccessToken(AuthCallback)}获取到的{@code authToken}
      * @return openId

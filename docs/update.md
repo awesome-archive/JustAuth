@@ -1,3 +1,53 @@
+## v1.13.2
+### 2019/12/24
+- 新增
+    - 增加微信、QQ、支付宝、微博授权登录的帮助文档
+    - 合并[PR#57](https://github.com/justauth/JustAuth/pull/57)，增加微信公众号登录 by [@xkcoding](https://github.com/xkcoding)
+    - [帮助文档](https://docs.justauth.whnb.wang)中增加自定义的404页面
+    - [帮助文档](https://docs.justauth.whnb.wang)中增加Gittalk插件
+    - [帮助文档](https://docs.justauth.whnb.wang)中增加Java代码高亮的插件
+    - 增加`AuthUserGender#getWechatRealGender`方法，兼容获取微信平台的用户性别
+- 修改
+    - 修复抖音登录取值取错层级的问题（[issue#I15SIG@Gitee](https://gitee.com/yadong.zhang/JustAuth/issues/I15SIG)）
+    - 完善异常提示的逻辑，支持传入Source（平台），发生异常时显示对应的source（平台）
+    - `checkState`方法从`AuthDefaultRequest`中提出到`AuthChecker`中
+    - `AuthResponseStatus`枚举类中增加`ILLEGAL_STATUS`、`REQUIRED_REFRESH_TOKEN`两个枚举值
+    - `AuthSource`接口中增加`getName`方法，用来对外提供实际`source`的字符串值
+    - `AuthWeiboRequest`微博授权登录中实现`revoke`方法，支持手动回收授权
+    - [帮助文档](https://docs.justauth.whnb.wang)中修复[腾讯云登录]链接错误的问题
+- 升级
+    - 升级相关依赖：lombok@v1.18.10，hutool@5.0.5，fastjson@1.2.62，alipay@4.8.10.ALL（[PR#11@Gitee](https://gitee.com/yadong.zhang/JustAuth/pulls/11)）
+
+
+## v1.13.1
+### 2019/11/12
+
+- 修复[Issue#52](https://github.com/justauth/JustAuth/issues/52)，解决AuthCallback异常的问题。请正在使用 `v1.13.0`的朋友升级到`v1.13.1`
+
+## v1.13.0
+### 2019/11/01
+
+- 集成“推特”
+- 完善文档
+
+## v1.12.0
+### 2019/09/06
+
+- 集成“美团”授权登录
+- 集成“饿了么”授权登录
+- 升级Fastjson依赖到1.2.60，预防[“Fastjson ＜ 1.2.60 远程拒绝服务漏洞预警”](https://card.weibo.com/article/m/show/id/2309404413257925394542)
+- 添加Nutzboot版的demo
+- 提取公共的Source接口，支持自定义扩展第三方平台的授权登录，具体扩展例子可参考[AuthExtendRequest](https://gitee.com/yadong.zhang/JustAuth/blob/master/src/test/java/me/zhyd/oauth/request/AuthExtendRequest.java)
+
+## v1.11.0
+### 2019/09/03
+
+- 集成“Gitlab”授权登录
+
+### 2019/09/02
+
+- 集成“酷家乐”授权登录
+
 ## v1.10.1
 ### 2019/08/17
 

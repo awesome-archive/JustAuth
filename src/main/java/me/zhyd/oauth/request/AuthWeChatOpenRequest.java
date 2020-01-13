@@ -5,7 +5,7 @@ import cn.hutool.http.HttpResponse;
 import com.alibaba.fastjson.JSONObject;
 import me.zhyd.oauth.cache.AuthStateCache;
 import me.zhyd.oauth.config.AuthConfig;
-import me.zhyd.oauth.config.AuthSource;
+import me.zhyd.oauth.config.AuthDefaultSource;
 import me.zhyd.oauth.enums.AuthResponseStatus;
 import me.zhyd.oauth.enums.AuthUserGender;
 import me.zhyd.oauth.exception.AuthException;
@@ -16,18 +16,18 @@ import me.zhyd.oauth.model.AuthUser;
 import me.zhyd.oauth.utils.UrlBuilder;
 
 /**
- * 微信登录
+ * 微信开放平台登录
  *
  * @author yangkai.shen (https://xkcoding.com)
  * @since 1.1.0
  */
-public class AuthWeChatRequest extends AuthDefaultRequest {
-    public AuthWeChatRequest(AuthConfig config) {
-        super(config, AuthSource.WECHAT);
+public class AuthWeChatOpenRequest extends AuthDefaultRequest {
+    public AuthWeChatOpenRequest(AuthConfig config) {
+        super(config, AuthDefaultSource.WECHAT_OPEN);
     }
 
-    public AuthWeChatRequest(AuthConfig config, AuthStateCache authStateCache) {
-        super(config, AuthSource.WECHAT, authStateCache);
+    public AuthWeChatOpenRequest(AuthConfig config, AuthStateCache authStateCache) {
+        super(config, AuthDefaultSource.WECHAT_OPEN, authStateCache);
     }
 
     /**
@@ -62,9 +62,9 @@ public class AuthWeChatRequest extends AuthDefaultRequest {
             .avatar(object.getString("headimgurl"))
             .location(location)
             .uuid(openId)
-            .gender(AuthUserGender.getRealGender(object.getString("sex")))
+            .gender(AuthUserGender.getWechatRealGender(object.getString("sex")))
             .token(authToken)
-            .source(source)
+            .source(source.toString())
             .build();
     }
 
