@@ -1,15 +1,18 @@
 package me.zhyd.oauth.request;
 
-import cn.hutool.http.HttpResponse;
 import com.alibaba.fastjson.JSONObject;
 import me.zhyd.oauth.cache.AuthStateCache;
 import me.zhyd.oauth.config.AuthConfig;
-import me.zhyd.oauth.config.AuthSource;
+import me.zhyd.oauth.config.AuthDefaultSource;
+import me.zhyd.oauth.enums.AuthResponseStatus;
 import me.zhyd.oauth.enums.AuthUserGender;
+import me.zhyd.oauth.enums.scope.AuthFacebookScope;
 import me.zhyd.oauth.exception.AuthException;
 import me.zhyd.oauth.model.AuthCallback;
 import me.zhyd.oauth.model.AuthToken;
 import me.zhyd.oauth.model.AuthUser;
+import me.zhyd.oauth.utils.AuthScopeUtils;
+import me.zhyd.oauth.utils.GlobalAuthUtils;
 import me.zhyd.oauth.utils.UrlBuilder;
 
 /**
@@ -21,17 +24,17 @@ import me.zhyd.oauth.utils.UrlBuilder;
 public class AuthFacebookRequest extends AuthDefaultRequest {
 
     public AuthFacebookRequest(AuthConfig config) {
-        super(config, AuthSource.FACEBOOK);
+        super(config, AuthDefaultSource.FACEBOOK);
     }
 
     public AuthFacebookRequest(AuthConfig config, AuthStateCache authStateCache) {
-        super(config, AuthSource.FACEBOOK, authStateCache);
+        super(config, AuthDefaultSource.FACEBOOK, authStateCache);
     }
 
     @Override
     protected AuthToken getAccessToken(AuthCallback authCallback) {
-        HttpResponse response = doPostAuthorizationCode(authCallback.getCode());
-        JSONObject accessTokenObject = JSONObject.parseObject(response.body());
+        String response = doPostAuthorizationCode(authCallback.getCode());
+        JSONObject accessTokenObject = JSONObject.parseObject(response);
         this.checkResponse(accessTokenObject);
         return AuthToken.builder()
             .accessToken(accessTokenObject.getString("access_token"))
@@ -42,20 +45,21 @@ public class AuthFacebookRequest extends AuthDefaultRequest {
 
     @Override
     protected AuthUser getUserInfo(AuthToken authToken) {
-        HttpResponse response = doGetUserInfo(authToken);
-        String userInfo = response.body();
+        String userInfo = doGetUserInfo(authToken);
         JSONObject object = JSONObject.parseObject(userInfo);
         this.checkResponse(object);
         return AuthUser.builder()
+            .rawUserInfo(object)
             .uuid(object.getString("id"))
             .username(object.getString("name"))
             .nickname(object.getString("name"))
+            .blog(object.getString("link"))
             .avatar(getUserPicture(object))
             .location(object.getString("locale"))
             .email(object.getString("email"))
             .gender(AuthUserGender.getRealGender(object.getString("gender")))
             .token(authToken)
-            .source(source)
+            .source(source.toString())
             .build();
     }
 
@@ -81,8 +85,18 @@ public class AuthFacebookRequest extends AuthDefaultRequest {
     protected String userInfoUrl(AuthToken authToken) {
         return UrlBuilder.fromBaseUrl(source.userInfo())
             .queryParam("access_token", authToken.getAccessToken())
-            .queryParam("fields", "id,name,birthday,gender,hometown,email,devices,picture.width(400)")
+            .queryParam("fields", "id,name,birthday,gender,hometown,email,devices,picture.width(400),link")
             .build();
+    }
+
+    @Override
+    protected void checkConfig(AuthConfig config) {
+        super.checkConfig(config);
+        // facebook的回调地址必须为https的链接
+        if (AuthDefaultSource.FACEBOOK == source && !GlobalAuthUtils.isHttpsProtocol(config.getRedirectUri())) {
+            // Facebook's redirect uri must use the HTTPS protocol
+            throw new AuthException(AuthResponseStatus.ILLEGAL_REDIRECT_URI, source);
+        }
     }
 
     /**
@@ -94,5 +108,18 @@ public class AuthFacebookRequest extends AuthDefaultRequest {
         if (object.containsKey("error")) {
             throw new AuthException(object.getJSONObject("error").getString("message"));
         }
+    }
+
+    /**
+     * 返回带{@code state}参数的授权url，授权回调时会带上这个{@code state}
+     *
+     * @param state state 验证授权流程的参数，可以防止csrf
+     * @return 返回授权地址
+     */
+    @Override
+    public String authorize(String state) {
+        return UrlBuilder.fromBaseUrl(super.authorize(state))
+            .queryParam("scope", this.getScopes(",", false, AuthScopeUtils.getDefaultScopes(AuthFacebookScope.values())))
+            .build();
     }
 }

@@ -1,16 +1,19 @@
 package me.zhyd.oauth.request;
 
-import cn.hutool.http.HttpResponse;
 import com.alibaba.fastjson.JSONObject;
 import me.zhyd.oauth.cache.AuthStateCache;
 import me.zhyd.oauth.config.AuthConfig;
-import me.zhyd.oauth.config.AuthSource;
+import me.zhyd.oauth.config.AuthDefaultSource;
+import me.zhyd.oauth.enums.AuthResponseStatus;
 import me.zhyd.oauth.enums.AuthUserGender;
 import me.zhyd.oauth.exception.AuthException;
 import me.zhyd.oauth.model.AuthCallback;
+import me.zhyd.oauth.model.AuthResponse;
 import me.zhyd.oauth.model.AuthToken;
 import me.zhyd.oauth.model.AuthUser;
-import me.zhyd.oauth.utils.GlobalAuthUtil;
+import me.zhyd.oauth.utils.GlobalAuthUtils;
+import me.zhyd.oauth.utils.HttpUtils;
+import me.zhyd.oauth.utils.StringUtils;
 import me.zhyd.oauth.utils.UrlBuilder;
 
 /**
@@ -22,11 +25,11 @@ import me.zhyd.oauth.utils.UrlBuilder;
 public class AuthTaobaoRequest extends AuthDefaultRequest {
 
     public AuthTaobaoRequest(AuthConfig config) {
-        super(config, AuthSource.TAOBAO);
+        super(config, AuthDefaultSource.TAOBAO);
     }
 
     public AuthTaobaoRequest(AuthConfig config, AuthStateCache authStateCache) {
-        super(config, AuthSource.TAOBAO, authStateCache);
+        super(config, AuthDefaultSource.TAOBAO, authStateCache);
     }
 
     @Override
@@ -34,27 +37,55 @@ public class AuthTaobaoRequest extends AuthDefaultRequest {
         return AuthToken.builder().accessCode(authCallback.getCode()).build();
     }
 
+    private AuthToken getAuthToken(JSONObject object) {
+        this.checkResponse(object);
+
+        return AuthToken.builder()
+            .accessToken(object.getString("access_token"))
+            .expireIn(object.getIntValue("expires_in"))
+            .tokenType(object.getString("token_type"))
+            .idToken(object.getString("id_token"))
+            .refreshToken(object.getString("refresh_token"))
+            .uid(object.getString("taobao_user_id"))
+            .openId(object.getString("taobao_open_uid"))
+            .build();
+    }
+
+    private void checkResponse(JSONObject object) {
+        if (object.containsKey("error")) {
+            throw new AuthException(object.getString("error_description"));
+        }
+    }
+
     @Override
     protected AuthUser getUserInfo(AuthToken authToken) {
-        HttpResponse response = doPostAuthorizationCode(authToken.getAccessCode());
-        JSONObject accessTokenObject = JSONObject.parseObject(response.body());
+        String response = doPostAuthorizationCode(authToken.getAccessCode());
+        JSONObject accessTokenObject = JSONObject.parseObject(response);
         if (accessTokenObject.containsKey("error")) {
             throw new AuthException(accessTokenObject.getString("error_description"));
         }
-        authToken.setAccessToken(accessTokenObject.getString("access_token"));
-        authToken.setRefreshToken(accessTokenObject.getString("refresh_token"));
-        authToken.setExpireIn(accessTokenObject.getIntValue("expires_in"));
-        authToken.setUid(accessTokenObject.getString("taobao_user_id"));
-        authToken.setOpenId(accessTokenObject.getString("taobao_open_uid"));
+        authToken = this.getAuthToken(accessTokenObject);
 
-        String nick = GlobalAuthUtil.urlDecode(accessTokenObject.getString("taobao_user_nick"));
+        String nick = GlobalAuthUtils.urlDecode(accessTokenObject.getString("taobao_user_nick"));
         return AuthUser.builder()
-            .uuid(accessTokenObject.getString("taobao_user_id"))
+            .rawUserInfo(accessTokenObject)
+            .uuid(StringUtils.isEmpty(authToken.getUid()) ? authToken.getOpenId() : authToken.getUid())
             .username(nick)
             .nickname(nick)
             .gender(AuthUserGender.UNKNOWN)
             .token(authToken)
-            .source(source)
+            .source(source.toString())
+            .build();
+    }
+
+    @Override
+    public AuthResponse refresh(AuthToken oldToken) {
+        String tokenUrl = refreshTokenUrl(oldToken.getRefreshToken());
+        String response = new HttpUtils(config.getHttpConfig()).post(tokenUrl).getBody();
+        JSONObject accessTokenObject = JSONObject.parseObject(response);
+        return AuthResponse.builder()
+            .code(AuthResponseStatus.SUCCESS.getCode())
+            .data(this.getAuthToken(accessTokenObject))
             .build();
     }
 
